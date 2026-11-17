@@ -49,7 +49,7 @@
 // ---------------------------------------------------------------------------
 
 static const wchar_t* const kAppName        = L"HidePanel";
-static const wchar_t* const kVersion        = L"1.2.1";
+static const wchar_t* const kVersion        = L"1.0.0";
 static const wchar_t* const kMsgWndClass    = L"HidePanel.MessageWindow";
 static const wchar_t* const kMutexName      = L"Local\\HidePanel.SingleInstance";
 static const wchar_t* const kTrayClass      = L"Shell_TrayWnd";

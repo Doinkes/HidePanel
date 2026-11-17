@@ -6,6 +6,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6.svg)](#)
 
+**Русский** · [English ↓](#english)
+
 [**Скачать последнюю версию**](https://github.com/Doinkes/HidePanel/releases/latest)
 
 Панель задач полностью скрыта и появляется **мгновенно**, только когда курсор оказывается
@@ -54,7 +56,7 @@ HidePanel убирает и задержки, и анимацию: показ/с
 
 ## Установка
 
-1. Скачайте `HidePanel-v1.2.1-win64.zip` из раздела **Releases** и распакуйте,
+1. Скачайте `HidePanel-v1.0.0-win64.zip` из раздела **Releases** и распакуйте,
    например, в `C:\Tools\HidePanel`.
 2. Запустите `HidePanel.exe`. Права администратора не нужны.
 3. Выход — `Ctrl+Alt+Q`, пункт «Выход» в меню значка в трее или `HidePanel.exe --quit`.
@@ -223,3 +225,63 @@ MIT — свободное использование, изменение и р�
 авторстве. См. [LICENSE](LICENSE).
 
 Автор: **Doinkes** · [github.com/Doinkes](https://github.com/Doinkes)
+
+---
+
+## English
+
+**HidePanel** keeps the Windows taskbar invisible and shows it instantly when the cursor touches
+the bottom edge of the screen. No slide animation and no reveal delay: showing takes ~2 ms, and
+the panel disappears the moment the cursor leaves it.
+
+Windows still treats the screen as fully free: maximized windows cover the whole monitor and the
+taskbar is drawn on top of them.
+
+### Features
+
+- instant show/hide (measured 2–3 ms), no shell animation, no delay
+- work area = full monitor, the taskbar overlays windows
+- tray icon with a menu: settings, start with Windows, exit
+- settings window with explanations, UI in English and Russian
+- never appears over fullscreen games and video (can be disabled)
+- multi-monitor aware, survives `explorer.exe` restarts
+- no admin rights, one ~230 KB exe, no external dependencies
+- restores your original Windows auto-hide setting on exit
+
+### Install
+
+1. Download `HidePanel-v1.0.0-win64.zip` from [Releases](https://github.com/Doinkes/HidePanel/releases/latest)
+   and unpack it, for example to `C:\Tools\HidePanel`.
+2. Run `HidePanel.exe`.
+3. To exit: `Ctrl+Alt+Q`, the "Exit" item in the tray menu, or `HidePanel.exe --quit`.
+
+Autostart: the "Start with Windows" item in the tray menu, or `scripts\install.ps1`.
+
+Requires Windows 10/11 x64. No administrator rights needed.
+
+### Usage
+
+The taskbar is hidden all the time. Move the cursor to the bottom edge (2 px by default) and it
+appears instantly — in its normal place, on top of the window. Move the cursor away and it
+disappears. The tray icon is part of the taskbar, so it is visible only while the panel is shown.
+
+### Settings
+
+Tray menu → Settings… opens a window with the hot zone thickness, cursor polling interval,
+full-screen mode, the fullscreen guard and "restore auto-hide on exit". Advanced options
+(`exit_hotkey`, `log`) live in `HidePanel.ini` next to the exe.
+
+### Build
+
+MSVC (Visual Studio 2022 Build Tools) or MinGW-w64 g++, PowerShell 5.1+ and the Windows SDK.
+No third-party dependencies — plain Win32 API.
+
+```powershell
+.\build.ps1            # MSVC if found, otherwise MinGW
+.\build.ps1 -Zip       # + dist\HidePanel-<version>-win64.zip
+```
+
+### License
+
+MIT — free to use, modify and distribute, provided the copyright notice is kept.
+See [LICENSE](LICENSE). Author: **Doinkes**.
