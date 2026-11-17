@@ -1,8 +1,9 @@
 ﻿# ---------------------------------------------------------------------------
-#  Проверка HidePanel "в бою": прячет ли панель, показывается ли мгновенно,
-#  возвращается ли всё назад после выхода.
-#  
+#  Проверка HidePanel "в бою": панель спрятана, рабочая область полная,
+#  появление/скрытие мгновенные, после выхода всё возвращается.
+#
 #  .\scripts\test.ps1
+#  .\scripts\test.ps1 -Force    (игнорировать fullscreen-guard)
 # ---------------------------------------------------------------------------
 [CmdletBinding()]
 param(
@@ -29,6 +30,10 @@ public static class Nat {
     [DllImport("user32.dll")] public static extern int GetSystemMetrics(int i);
     [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr ctx);
     [DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint a, uint b, ref RECT r, uint c);
+    [DllImport("user32.dll")] public static extern int GetWindowRgn(IntPtr h, IntPtr rgn);
+    [DllImport("user32.dll")] public static extern bool SetWindowRgn(IntPtr h, IntPtr rgn, bool redraw);
+    [DllImport("gdi32.dll")] public static extern IntPtr CreateRectRgn(int l, int t, int r, int b);
+    [DllImport("gdi32.dll")] public static extern bool DeleteObject(IntPtr o);
     [DllImport("shell32.dll")] public static extern uint SHAppBarMessage(uint msg, ref APPBARDATA abd);
 
     [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
@@ -42,13 +47,14 @@ public static class Nat {
     public const uint ABS_AUTOHIDE = 1;
     public const uint ABS_ALWAYSONTOP = 2;
     public const uint SPI_GETWORKAREA = 0x30;
+    public const uint SPI_SETWORKAREA = 0x2F;
 }
 "@
 
 # физические пиксели
 [Nat]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null
 
-Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Drawing, System.Windows.Forms
 
 $script:fail = 0
 function Check([string]$name, [bool]$ok, [string]$extra = '') {
@@ -62,6 +68,14 @@ function Get-Tray {
     return $h
 }
 
+# Скрыта ли панель: у неё пустой регион окна (WS_VISIBLE при этом остаётся)
+function Test-TrayHidden([IntPtr]$h) {
+    $rgn = [Nat]::CreateRectRgn(0, 0, 1, 1)
+    $type = [Nat]::GetWindowRgn($h, $rgn)
+    [Nat]::DeleteObject($rgn) | Out-Null
+    return ($type -eq 1)   # NULLREGION
+}
+
 function Get-AutoHide {
     $abd = New-Object Nat+APPBARDATA
     $abd.cbSize = [uint32][Runtime.InteropServices.Marshal]::SizeOf([type]([Nat+APPBARDATA]))
@@ -73,6 +87,12 @@ function Get-WorkArea {
     $r = New-Object Nat+RECT
     [Nat]::SystemParametersInfo([Nat]::SPI_GETWORKAREA, 0, [ref]$r, 0) | Out-Null
     return $r
+}
+
+function Set-WorkArea([int]$l, [int]$t, [int]$r, [int]$b) {
+    $x = New-Object Nat+RECT
+    $x.Left = $l; $x.Top = $t; $x.Right = $r; $x.Bottom = $b
+    [Nat]::SystemParametersInfo([Nat]::SPI_SETWORKAREA, 0, [ref]$x, 0) | Out-Null
 }
 
 function Set-AutoHide([bool]$on) {
@@ -94,10 +114,10 @@ function Shot([string]$path, [int]$height = 320) {
     $bmp.Dispose()
 }
 
-function Wait-Visible([IntPtr]$tray, [bool]$want, [int]$timeoutMs = 2000) {
+function Wait-Hidden([IntPtr]$tray, [bool]$wantHidden, [int]$timeoutMs = 2000) {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     while ($sw.ElapsedMilliseconds -lt $timeoutMs) {
-        if ([Nat]::IsWindowVisible($tray) -eq $want) { return $sw.ElapsedMilliseconds }
+        if ((Test-TrayHidden $tray) -eq $wantHidden) { return $sw.ElapsedMilliseconds }
         Start-Sleep -Milliseconds 1
     }
     return -1
@@ -118,9 +138,9 @@ function Set-Cursor([int]$x, [int]$y, [int]$tries = 4) {
 # ---------------------------------------------------------------------------
 
 $tray = Get-Tray
-$origAutoHide  = Get-AutoHide
-$origWork      = Get-WorkArea
-$origCursor    = New-Object Nat+POINT
+$origAutoHide = Get-AutoHide
+$origWork     = Get-WorkArea
+$origCursor   = New-Object Nat+POINT
 [Nat]::GetCursorPos([ref]$origCursor) | Out-Null
 $screenW = [Nat]::GetSystemMetrics(0)
 $screenH = [Nat]::GetSystemMetrics(1)
@@ -134,79 +154,100 @@ Write-Host "work area: $($origWork.Left),$($origWork.Top) - $($origWork.Right),$
 Write-Host ""
 
 $proc = $null
+$form = $null
 try {
     # --- запуск -----------------------------------------------------------
     $appArgs = @('--debug')
     if ($Force) { $appArgs += '--no-fullscreen-guard' }
     $proc = Start-Process -FilePath $Exe -ArgumentList $appArgs -PassThru
-    Start-Sleep -Milliseconds 800
+    Start-Sleep -Milliseconds 900
     if ($proc.HasExited) { throw "HidePanel exited immediately (code $($proc.ExitCode))" }
 
-    # --- 1. панель спрятана ----------------------------------------------
+    # --- 1. панель спрятана, рабочая область полная -----------------------
     Start-Sleep -Milliseconds 400
-    $hiddenNow = -not [Nat]::IsWindowVisible($tray)
-    Check 'taskbar hidden after start' $hiddenNow
+    Check 'taskbar hidden after start' (Test-TrayHidden $tray)
     Check 'native auto-hide disabled while running' (-not (Get-AutoHide))
 
-    # Рабочая область: нативное авто-скрытие резервирует весь экран, наша
-    # программа — место под панель. Главное, чтобы она не "прыгала" в работе.
     $wa = Get-WorkArea
-    Check 'work area reserves taskbar slot' ($wa.Bottom -le $screenH -and $wa.Bottom -ge $screenH - 96) `
+    Check 'work area = full screen' `
+        ($wa.Left -eq 0 -and $wa.Top -eq 0 -and $wa.Right -eq $screenW -and $wa.Bottom -eq $screenH) `
         "($($wa.Right)x$($wa.Bottom))"
-    Shot (Join-Path $shots '01-hidden.png')
     Start-Sleep -Milliseconds 350
-    Shot (Join-Path $shots '02-still-hidden.png')
+    Shot (Join-Path $shots '01-hidden.png')
 
-    # --- 2. курсор в нижние 2 px -> мгновенно показать -------------------
+    # --- 2. развёрнутое окно занимает весь экран --------------------------
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = 'HidePanel test window'
+    $form.Show()
+    [System.Windows.Forms.Application]::DoEvents()
+    $form.WindowState = 'Maximized'
+    [System.Windows.Forms.Application]::DoEvents()
+    Start-Sleep -Milliseconds 400
+    $r = New-Object Nat+RECT
+    [Nat]::GetWindowRect($form.Handle, [ref]$r) | Out-Null
+    Check 'maximized window covers full screen' `
+        ($r.Bottom -ge $screenH -and $r.Right -ge $screenW) `
+        "(rect $($r.Left),$($r.Top)-$($r.Right),$($r.Bottom))"
+
+    # --- 3. курсор в нижние 2 px -> мгновенно показать --------------------
     $cx = [int]($screenW / 2)
     Set-Cursor $cx ($screenH - 1) | Out-Null
-    $ms = Wait-Visible $tray $true
+    $ms = Wait-Hidden $tray $false
     Check 'taskbar appears on bottom-edge hover' ($ms -ge 0) "($ms ms)"
     Check 'appears fast (< 40 ms)' ($ms -ge 0 -and $ms -lt 40) "($ms ms)"
     Start-Sleep -Milliseconds 120
-    Shot (Join-Path $shots '03-shown.png')
+    Shot (Join-Path $shots '02-shown-over-window.png')
 
-    # панель должна остаться, пока курсор на ней (переставляем курсор, если
-    # пользователь случайно сдвинул мышь)
+    # панель остаётся, пока курсор на ней
     $stays = $true
     for ($i = 0; $i -lt 8; $i++) {
         if (-not (Set-Cursor $cx ($screenH - 1))) { $stays = $false }
         Start-Sleep -Milliseconds 60
     }
-    Check 'taskbar stays while cursor is on it' ($stays -and [Nat]::IsWindowVisible($tray))
+    Check 'taskbar stays while cursor is on it' ($stays -and -not (Test-TrayHidden $tray))
 
-    # --- 3. курсор ушёл -> мгновенно спрятать -----------------------------
+    # --- 4. курсор ушёл -> мгновенно спрятать -----------------------------
     Set-Cursor $cx ($screenH - 200) | Out-Null
-    $ms = Wait-Visible $tray $false
+    $ms = Wait-Hidden $tray $true
     Check 'taskbar hides when cursor leaves' ($ms -ge 0) "($ms ms)"
     Check 'hides fast (< 40 ms)' ($ms -ge 0 -and $ms -lt 40) "($ms ms)"
     Start-Sleep -Milliseconds 120
-    Shot (Join-Path $shots '04-hidden-again.png')
+    Shot (Join-Path $shots '03-hidden-again.png')
 
-    # --- 4. ещё несколько циклов ------------------------------------------
+    # рабочая область не должна "съезжать" после цикла показа/скрытия
+    $wa = Get-WorkArea
+    Check 'work area stays full after hide' `
+        ($wa.Right -eq $screenW -and $wa.Bottom -eq $screenH) `
+        "($($wa.Right)x$($wa.Bottom))"
+
+    # --- 5. ещё несколько циклов ------------------------------------------
     $ok = $true
     for ($i = 0; $i -lt 5; $i++) {
         Set-Cursor $cx ($screenH - 1) | Out-Null
-        if ((Wait-Visible $tray $true 500) -lt 0) { $ok = $false; break }
+        if ((Wait-Hidden $tray $false 500) -lt 0) { $ok = $false; break }
         Set-Cursor $cx ($screenH - 120) | Out-Null
-        if ((Wait-Visible $tray $false 500) -lt 0) { $ok = $false; break }
+        if ((Wait-Hidden $tray $true 500) -lt 0) { $ok = $false; break }
     }
     Check '5 show/hide cycles' $ok
 
-    # --- 5. выход по --quit -----------------------------------------------
-    Start-Sleep -Milliseconds 150
+    # --- 6. выход по --quit -----------------------------------------------
     Set-Cursor $cx ($screenH - 120) | Out-Null
+    Start-Sleep -Milliseconds 150
     & $Exe --quit | Out-Null
     $exited = $proc.WaitForExit(4000)
     Check 'process exits on --quit' $exited
-    Start-Sleep -Milliseconds 400
+    Start-Sleep -Milliseconds 500
 
     $tray = Get-Tray
-    Check 'taskbar visible after exit' ([Nat]::IsWindowVisible($tray))
+    Check 'taskbar visible after exit' (-not (Test-TrayHidden $tray))
     Check 'native auto-hide restored' ((Get-AutoHide) -eq $origAutoHide) `
         "(now $(Get-AutoHide), was $origAutoHide)"
+    Check 'work area restored' ((Get-WorkArea).Bottom -eq $origWork.Bottom) `
+        "(now $((Get-WorkArea).Bottom), was $($origWork.Bottom))"
 }
 finally {
+    if ($form) { $form.Close(); $form.Dispose() }
+
     # что бы ни случилось — вернуть панель и настройки
     if ($proc -and -not $proc.HasExited) {
         & $Exe --quit 2>$null | Out-Null
@@ -215,9 +256,11 @@ finally {
     Start-Sleep -Milliseconds 200
     $tray = [Nat]::FindWindow('Shell_TrayWnd', $null)
     if ($tray -ne [IntPtr]::Zero) {
+        [Nat]::SetWindowRgn($tray, [IntPtr]::Zero, $true) | Out-Null
         Set-AutoHide $origAutoHide
         [Nat]::ShowWindow($tray, 5) | Out-Null
     }
+    Set-WorkArea $origWork.Left $origWork.Top $origWork.Right $origWork.Bottom
     [Nat]::SetCursorPos($origCursor.X, $origCursor.Y) | Out-Null
     Write-Host ""
     Write-Host "screenshots: $shots"

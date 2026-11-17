@@ -15,8 +15,8 @@ IDI_APP_ICON ICON "assets/icon.ico"
 //  Версия
 // ---------------------------------------------------------------------------
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION     1,0,0,0
- PRODUCTVERSION  1,0,0,0
+ FILEVERSION     1,1,0,0
+ PRODUCTVERSION  1,1,0,0
  FILEFLAGSMASK   0x3fL
  FILEFLAGS       0x0L
  FILEOS          VOS_NT_WINDOWS32
@@ -29,12 +29,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "HidePanel"
             VALUE "FileDescription",  "HidePanel - instant taskbar auto-hide"
-            VALUE "FileVersion",      "1.0.0.0"
+            VALUE "FileVersion",      "1.1.0.0"
             VALUE "InternalName",     "HidePanel"
             VALUE "LegalCopyright",   "MIT License"
             VALUE "OriginalFilename", "HidePanel.exe"
             VALUE "ProductName",      "HidePanel"
-            VALUE "ProductVersion",   "1.0.0.0"
+            VALUE "ProductVersion",   "1.1.0.0"
         END
     END
     BLOCK "VarFileInfo"

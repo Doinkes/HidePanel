@@ -1,8 +1,8 @@
 ﻿# ---------------------------------------------------------------------------
-#  Сборка HidePanel
+#  ?????? HidePanel
 #  
-#  .\build.ps1                 # авто: MSVC, если найден, иначе MinGW
-#  .\build.ps1 -Compiler mingw # принудительно MinGW (g++)
+#  .\build.ps1                 # ????: MSVC, ???? ??????, ????? MinGW
+#  .\build.ps1 -Compiler mingw # ????????????? MinGW (g++)
 #  .\build.ps1 -Zip            # + dist\HidePanel-<ver>-win64.zip
 #  .\build.ps1 -Clean
 # ---------------------------------------------------------------------------
@@ -38,7 +38,7 @@ if ($Clean) {
 
 New-Item -ItemType Directory -Force -Path $build, $dist | Out-Null
 
-# --- иконка (нужна ресурсному компилятору) ---------------------------------
+# --- ?????? (????? ?????????? ???????????) ---------------------------------
 if (-not (Test-Path (Join-Path $root 'assets\icon.ico'))) {
     Write-Host 'icon.ico not found, generating...'
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tools\make-icon.ps1')
@@ -72,7 +72,7 @@ function Build-Msvc([string]$vcvars) {
     $cmd = @(
         "call `"$vcvars`" >nul",
         "rc /nologo /I `"$src`" /fo `"$build\resources.res`" `"src\resources.rc`"",
-        "cl /nologo /std:c++17 /EHsc /W4 $flags $defines `/Fo`"$build\main.obj`" `/Fe`"$exePath`" `"src\main.cpp`" `"$build\resources.res`" /link /SUBSYSTEM:WINDOWS /MANIFEST:NO /OPT:REF /OPT:ICF user32.lib shell32.lib"
+        "cl /nologo /std:c++17 /utf-8 /EHsc /W4 $flags $defines `/Fo`"$build\main.obj`" `/Fe`"$exePath`" `"src\main.cpp`" `"$build\resources.res`" /link /SUBSYSTEM:WINDOWS /MANIFEST:NO /OPT:REF /OPT:ICF user32.lib gdi32.lib shell32.lib advapi32.lib"
     ) -join ' && '
 
     Write-Host "MSVC: $vcvars"
@@ -99,7 +99,7 @@ function Build-Mingw {
         '-DUNICODE', '-D_UNICODE', '-DWIN32_LEAN_AND_MEAN', '-DNOMINMAX',
         '-Isrc', 'src\main.cpp', 'build\resources.o',
         '-o', $exePath,
-        '-luser32', '-lshell32', '-lgdi32'
+        '-luser32', '-lshell32', '-ladvapi32', '-lgdi32'
     ) + ($flags -split '\s+')
 
     & $gxx.Source @args
