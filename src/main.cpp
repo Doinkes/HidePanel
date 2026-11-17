@@ -49,7 +49,7 @@
 // ---------------------------------------------------------------------------
 
 static const wchar_t* const kAppName        = L"HidePanel";
-static const wchar_t* const kVersion        = L"1.1.0";
+static const wchar_t* const kVersion        = L"1.2.0";
 static const wchar_t* const kMsgWndClass    = L"HidePanel.MessageWindow";
 static const wchar_t* const kMutexName      = L"Local\\HidePanel.SingleInstance";
 static const wchar_t* const kTrayClass      = L"Shell_TrayWnd";
@@ -107,6 +107,186 @@ static volatile LONG g_forceRefresh = 0;
 static bool g_originalAutoHide = true;   // состояние штатного авто-скрытия до запуска
 
 static UINT g_msgTaskbarCreated = 0;
+
+// ---------------------------------------------------------------------------
+//  Локализация
+// ---------------------------------------------------------------------------
+
+enum Lang { LANG_RU = 0, LANG_EN = 1 };
+
+struct UiStrings
+{
+    const wchar_t* languageLabel;
+    const wchar_t* langRu;
+    const wchar_t* langEn;
+
+    const wchar_t* edgeLabel;
+    const wchar_t* edgeDesc;
+    const wchar_t* px;
+
+    const wchar_t* pollLabel;
+    const wchar_t* pollDesc;
+    const wchar_t* ms;
+
+    const wchar_t* workAreaLabel;
+    const wchar_t* workAreaDesc;
+
+    const wchar_t* guardLabel;
+    const wchar_t* guardDesc;
+
+    const wchar_t* restoreLabel;
+    const wchar_t* restoreDesc;
+
+    const wchar_t* logLabel;
+    const wchar_t* logDesc;
+
+    const wchar_t* hotkeyLabel;
+    const wchar_t* hotkeyDesc;
+
+    const wchar_t* saveBtn;
+    const wchar_t* cancelBtn;
+    const wchar_t* defaultsBtn;
+
+    const wchar_t* errTitle;
+    const wchar_t* errRange;
+    const wchar_t* errHotkey;
+    const wchar_t* errSave;
+
+    const wchar_t* trayTip;
+    const wchar_t* menuSettings;
+    const wchar_t* menuAutostart;
+    const wchar_t* menuExit;
+
+    const wchar_t* helpBody;
+    const wchar_t* helpExit;
+    const wchar_t* helpSettings;
+    const wchar_t* helpLog;
+};
+
+static const UiStrings kStringsRu =
+{
+    L"Язык интерфейса",
+    L"Русский",
+    L"English",
+
+    L"Толщина горячей полосы",
+    L"Высота невидимой полосы у нижнего края экрана, при касании которой появляется панель.",
+    L"px",
+
+    L"Период опроса курсора",
+    L"Как часто проверяется положение курсора. Меньше — отзывчивее, больше — меньше нагрузка.",
+    L"мс",
+
+    L"Разворачивать окна на весь экран",
+    L"Рабочая область равна полному размеру монитора, а панель рисуется поверх окон.",
+
+    L"Не показывать поверх полноэкранных приложений",
+    L"Панель не будет появляться поверх игр и полноэкранного видео.",
+
+    L"Восстанавливать авто-скрытие при выходе",
+    L"Вернуть исходную настройку Windows, когда программа закрывается.",
+
+    L"Записывать лог",
+    L"Файл HidePanel.log в папке %LOCALAPPDATA%\\HidePanel — пригодится для отчёта об ошибке.",
+
+    L"Горячая клавиша выхода",
+    L"Например: Ctrl+Alt+Q, Ctrl+Shift+F12, Win+Alt+H.",
+
+    L"Сохранить",
+    L"Отмена",
+    L"По умолчанию",
+
+    L"Настройки",
+    L"Проверьте значения: толщина 1–64 px, период опроса 1–200 мс.",
+    L"Не удалось разобрать горячую клавишу. Пример: Ctrl+Alt+Q.",
+    L"Не удалось записать файл настроек.",
+
+    L"HidePanel — панель задач скрыта",
+    L"Настройки…",
+    L"Запускать при входе в Windows",
+    L"Выход",
+
+    L"Панель задач скрыта и появляется мгновенно, когда курсор оказывается\n"
+    L"в самой нижней полосе экрана.\n\n"
+    L"Параметры командной строки:\n"
+    L"  --restore        показать панель и вернуть штатное авто-скрытие\n"
+    L"  --quit           остановить запущенный экземпляр\n"
+    L"  --edge N         толщина горячей полосы, px\n"
+    L"  --poll N         период опроса курсора, мс\n"
+    L"  --debug          подробный лог\n"
+    L"  --version        версия\n",
+
+    L"Выход",
+    L"Настройки",
+    L"Лог",
+};
+
+static const UiStrings kStringsEn =
+{
+    L"Interface language",
+    L"Русский",
+    L"English",
+
+    L"Hot zone thickness",
+    L"Height of the invisible strip at the bottom edge that reveals the taskbar.",
+    L"px",
+
+    L"Cursor polling interval",
+    L"How often the cursor position is checked. Lower is more responsive, higher uses less CPU.",
+    L"ms",
+
+    L"Maximize windows to full screen",
+    L"The work area covers the whole monitor and the taskbar is drawn on top of windows.",
+
+    L"Never show over fullscreen apps",
+    L"The taskbar will not appear over games and fullscreen video.",
+
+    L"Restore auto-hide on exit",
+    L"Put the original Windows setting back when the program quits.",
+
+    L"Write a log file",
+    L"HidePanel.log in %LOCALAPPDATA%\\HidePanel — useful for bug reports.",
+
+    L"Exit hotkey",
+    L"For example: Ctrl+Alt+Q, Ctrl+Shift+F12, Win+Alt+H.",
+
+    L"Save",
+    L"Cancel",
+    L"Defaults",
+
+    L"Settings",
+    L"Check the values: thickness 1–64 px, polling interval 1–200 ms.",
+    L"Cannot parse the hotkey. Example: Ctrl+Alt+Q.",
+    L"Could not write the settings file.",
+
+    L"HidePanel — taskbar hidden",
+    L"Settings…",
+    L"Start with Windows",
+    L"Exit",
+
+    L"The taskbar is hidden and appears instantly when the cursor reaches\n"
+    L"the bottom edge of the screen.\n\n"
+    L"Command line:\n"
+    L"  --restore        show the taskbar and restore the native auto-hide\n"
+    L"  --quit           stop the running instance\n"
+    L"  --edge N         hot zone thickness, px\n"
+    L"  --poll N         cursor polling interval, ms\n"
+    L"  --debug          verbose log\n"
+    L"  --version        version\n",
+
+    L"Exit",
+    L"Settings",
+    L"Log",
+};
+
+static Lang g_lang = LANG_RU;
+static const UiStrings& S() { return (g_lang == LANG_EN) ? kStringsEn : kStringsRu; }
+
+static Lang DetectSystemLanguage()
+{
+    LANGID id = GetUserDefaultUILanguage();
+    return (PRIMARYLANGID(id) == LANG_RUSSIAN) ? LANG_RU : LANG_EN;
+}
 
 // ---------------------------------------------------------------------------
 //  Логирование
@@ -870,21 +1050,12 @@ static bool SetAutostart(bool on)
     return ok;
 }
 
-static void OpenSettingsFile()
-{
-    if (GetFileAttributesW(g_opt.iniPath.c_str()) == INVALID_FILE_ATTRIBUTES)
-    {
-        WritePrivateProfileStringW(L"settings", L"edge_px", L"2", g_opt.iniPath.c_str());
-        WritePrivateProfileStringW(L"settings", L"poll_ms", L"5", g_opt.iniPath.c_str());
-        WritePrivateProfileStringW(L"settings", L"full_work_area", L"1", g_opt.iniPath.c_str());
-        WritePrivateProfileStringW(L"settings", L"fullscreen_guard", L"1", g_opt.iniPath.c_str());
-        WritePrivateProfileStringW(L"settings", L"restore_on_exit", L"1", g_opt.iniPath.c_str());
-        WritePrivateProfileStringW(L"settings", L"log", L"0", g_opt.iniPath.c_str());
-        WritePrivateProfileStringW(L"settings", L"exit_hotkey", L"Ctrl+Alt+Q", g_opt.iniPath.c_str());
-    }
+static void ShowSettingsWindow();   // определена ниже
 
-    std::wstring params = L"\"" + g_opt.iniPath + L"\"";
-    ShellExecuteW(nullptr, L"open", L"notepad.exe", params.c_str(), nullptr, SW_SHOWNORMAL);
+static void TrayUpdateTip()
+{
+    StringCchCopyW(g_nid.szTip, _countof(g_nid.szTip), S().trayTip);
+    if (g_trayIconAdded) Shell_NotifyIconW(NIM_MODIFY, &g_nid);
 }
 
 static void TrayAdd()
@@ -901,8 +1072,7 @@ static void TrayAdd()
                                     IMAGE_ICON, cx, cy, LR_DEFAULTCOLOR);
     if (!g_nid.hIcon) g_nid.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
 
-    StringCchCopyW(g_nid.szTip, _countof(g_nid.szTip),
-                   L"HidePanel — панель задач скрыта");
+    StringCchCopyW(g_nid.szTip, _countof(g_nid.szTip), S().trayTip);
     g_trayIconAdded = (Shell_NotifyIconW(NIM_ADD, &g_nid) != FALSE);
     if (!g_trayIconAdded) LogW(L"warning: Shell_NotifyIcon(NIM_ADD) failed");
 }
@@ -971,11 +1141,11 @@ static void ShowTrayMenu()
     StringCchPrintfW(title, _countof(title), L"HidePanel %s", kVersion);
     AppendMenuW(menu, MF_STRING | MF_DISABLED, 0, title);
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, IDM_TRAY_SETTINGS, S().menuSettings);
     AppendMenuW(menu, MF_STRING | (IsAutostartEnabled() ? MF_CHECKED : 0),
-                IDM_TRAY_AUTOSTART, L"Запускать при входе в Windows");
-    AppendMenuW(menu, MF_STRING, IDM_TRAY_SETTINGS, L"Настройки (HidePanel.ini)");
+                IDM_TRAY_AUTOSTART, S().menuAutostart);
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu, MF_STRING, IDM_TRAY_EXIT, L"Выход");
+    AppendMenuW(menu, MF_STRING, IDM_TRAY_EXIT, S().menuExit);
 
     POINT pt = {};
     GetCursorPos(&pt);
@@ -984,6 +1154,454 @@ static void ShowTrayMenu()
                    pt.x, pt.y, 0, g_hwnd, nullptr);
     PostMessageW(g_hwnd, WM_NULL, 0, 0);
     DestroyMenu(menu);
+}
+
+// ---------------------------------------------------------------------------
+//  Окно настроек
+// ---------------------------------------------------------------------------
+
+static const wchar_t* const kSettingsClass = L"HidePanel.SettingsWindow";
+
+enum SettingsId
+{
+    IDC_LANG_RU = 0x901,
+    IDC_LANG_EN,
+    IDC_EDGE,
+    IDC_EDGE_UNIT,
+    IDC_POLL,
+    IDC_POLL_UNIT,
+    IDC_WORKAREA,
+    IDC_GUARD,
+    IDC_RESTORE,
+    IDC_LOG,
+    IDC_HOTKEY,
+    IDC_SAVE,
+    IDC_CANCEL,
+    IDC_DEFAULTS,
+    IDC_DESC_FIRST = 0xA00,     // описания (серый текст); ID > этого значения
+};
+
+static HWND  g_settingsWnd = nullptr;
+static HFONT g_fontUi     = nullptr;
+static HFONT g_fontBold   = nullptr;
+static HFONT g_fontSmall  = nullptr;
+static int   g_dpi        = 96;
+static Lang  g_langOnOpen = LANG_RU;
+static bool  g_settingsOpen = false;
+
+static int Scale(int v) { return MulDiv(v, g_dpi, 96); }
+
+static HFONT MakeFont(int pt, int weight)
+{
+    return CreateFontW(-MulDiv(pt, g_dpi, 72), 0, 0, 0, weight, FALSE, FALSE, FALSE,
+                       DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                       CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+}
+
+static void EnsureFonts()
+{
+    if (g_fontUi) return;
+    g_fontUi    = MakeFont(9, FW_NORMAL);
+    g_fontBold  = MakeFont(9, FW_SEMIBOLD);
+    g_fontSmall = MakeFont(8, FW_NORMAL);
+}
+
+static void DestroyFonts()
+{
+    if (g_fontUi)    { DeleteObject(g_fontUi);    g_fontUi = nullptr; }
+    if (g_fontBold)  { DeleteObject(g_fontBold);  g_fontBold = nullptr; }
+    if (g_fontSmall) { DeleteObject(g_fontSmall); g_fontSmall = nullptr; }
+}
+
+static HWND MakeCtrl(const wchar_t* cls, const wchar_t* text, DWORD style,
+                     int x, int y, int w, int h, int id, HFONT font)
+{
+    HWND c = CreateWindowExW(0, cls, text, WS_CHILD | WS_VISIBLE | style,
+                             x, y, w, h, g_settingsWnd,
+                             reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)),
+                             g_hInst, nullptr);
+    if (c && font) SendMessageW(c, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+    return c;
+}
+
+static int TextHeight(const wchar_t* text, int width, HFONT font)
+{
+    HDC hdc = GetDC(g_settingsWnd);
+    HFONT old = static_cast<HFONT>(SelectObject(hdc, font));
+    RECT r = { 0, 0, width, 0 };
+    DrawTextW(hdc, text, -1, &r, DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX);
+    SelectObject(hdc, old);
+    ReleaseDC(g_settingsWnd, hdc);
+    return (r.bottom - r.top) + Scale(2);
+}
+
+static bool IsChecked(int id)
+{
+    return SendDlgItemMessageW(g_settingsWnd, id, BM_GETCHECK, 0, 0) == BST_CHECKED;
+}
+
+static void SetChecked(int id, bool on)
+{
+    SendDlgItemMessageW(g_settingsWnd, id, BM_SETCHECK,
+                        on ? BST_CHECKED : BST_UNCHECKED, 0);
+}
+
+// Собирает окно заново (в текущем языке и с текущими значениями).
+static void BuildSettingsUi()
+{
+    if (!g_settingsWnd) return;
+
+    EnumChildWindows(g_settingsWnd, [](HWND c, LPARAM) -> BOOL {
+        DestroyWindow(c);
+        return TRUE;
+    }, 0);
+
+    EnsureFonts();
+    g_dpi = GetDpiForWindow(g_settingsWnd);
+
+    {
+        wchar_t title[128] = {};
+        StringCchPrintfW(title, _countof(title), L"HidePanel %s — %s", kVersion, S().menuSettings);
+        SetWindowTextW(g_settingsWnd, title);
+    }
+
+    const int M       = Scale(18);
+    const int clientW = Scale(620);
+    const int cw      = clientW - 2 * M;
+
+    int y = M;
+
+    // --- язык -------------------------------------------------------------
+    MakeCtrl(L"STATIC", S().languageLabel, SS_LEFT, M, y, Scale(150), Scale(20), -1, g_fontBold);
+    MakeCtrl(L"BUTTON", S().langRu, BS_AUTORADIOBUTTON | BS_LEFT | WS_GROUP,
+             M + Scale(160), y - Scale(2), Scale(110), Scale(22), IDC_LANG_RU, g_fontUi);
+    MakeCtrl(L"BUTTON", S().langEn, BS_AUTORADIOBUTTON | BS_LEFT,
+             M + Scale(275), y - Scale(2), Scale(110), Scale(22), IDC_LANG_EN, g_fontUi);
+    SetChecked(IDC_LANG_RU, g_lang == LANG_RU);
+    SetChecked(IDC_LANG_EN, g_lang == LANG_EN);
+    y += Scale(30);
+
+    MakeCtrl(L"STATIC", nullptr, SS_ETCHEDHORZ, M, y, cw, Scale(1), -1, nullptr);
+    y += Scale(14);
+
+    // --- числовые/текстовые строки ----------------------------------------
+    struct Row
+    {
+        const wchar_t* label;
+        const wchar_t* desc;
+        int  id;
+        int  value;
+        int  minV, maxV;
+        const wchar_t* unit;
+    };
+    Row rows[] = {
+        { S().edgeLabel, S().edgeDesc, IDC_EDGE,   g_opt.edgePx, 1,  64,  S().px },
+        { S().pollLabel, S().pollDesc, IDC_POLL,   g_opt.pollMs, 1, 200,  S().ms },
+    };
+
+    for (const Row& r : rows)
+    {
+        MakeCtrl(L"STATIC", r.label, SS_LEFT, M, y, cw - Scale(130), Scale(20), -1, g_fontBold);
+
+        wchar_t buf[32] = {};
+        StringCchPrintfW(buf, _countof(buf), L"%d", r.value);
+        MakeCtrl(L"EDIT", buf, ES_NUMBER | ES_RIGHT | WS_BORDER,
+                 M + cw - Scale(110), y - Scale(3), Scale(70), Scale(24), r.id, g_fontUi);
+        MakeCtrl(L"STATIC", r.unit, SS_LEFT, M + cw - Scale(32), y, Scale(32), Scale(20), -1, g_fontUi);
+        y += Scale(26);
+
+        int dh = TextHeight(r.desc, cw, g_fontSmall);
+        MakeCtrl(L"STATIC", r.desc, SS_LEFT, M, y, cw, dh, IDC_DESC_FIRST + r.id, g_fontSmall);
+        y += dh + Scale(12);
+    }
+
+    // --- галочки ----------------------------------------------------------
+    struct BoolRow
+    {
+        const wchar_t* label;
+        const wchar_t* desc;
+        int  id;
+        bool value;
+    };
+    BoolRow bools[] = {
+        { S().workAreaLabel, S().workAreaDesc, IDC_WORKAREA, g_opt.fullWorkArea },
+        { S().guardLabel,    S().guardDesc,    IDC_GUARD,    g_opt.fullscreenGuard },
+        { S().restoreLabel,  S().restoreDesc,  IDC_RESTORE,  g_opt.restoreOnExit },
+        { S().logLabel,      S().logDesc,      IDC_LOG,      g_opt.logEnabled },
+    };
+
+    for (const BoolRow& b : bools)
+    {
+        MakeCtrl(L"BUTTON", b.label, BS_AUTOCHECKBOX | BS_LEFT,
+                 M - Scale(4), y - Scale(2), cw, Scale(24), b.id, g_fontBold);
+        SetChecked(b.id, b.value);
+        y += Scale(26);
+
+        int dh = TextHeight(b.desc, cw - Scale(20), g_fontSmall);
+        MakeCtrl(L"STATIC", b.desc, SS_LEFT, M + Scale(16), y, cw - Scale(20), dh,
+                 IDC_DESC_FIRST + b.id, g_fontSmall);
+        y += dh + Scale(10);
+    }
+
+    // --- горячая клавиша --------------------------------------------------
+    MakeCtrl(L"STATIC", S().hotkeyLabel, SS_LEFT, M, y, cw - Scale(210), Scale(20), -1, g_fontBold);
+    {
+        wchar_t hk[64] = {};
+        StringCchCopyW(hk, _countof(hk), HotkeyToString(g_opt.hotkeyMods, g_opt.hotkeyVk).c_str());
+        MakeCtrl(L"EDIT", hk, ES_AUTOHSCROLL | WS_BORDER,
+                 M + cw - Scale(200), y - Scale(3), Scale(200), Scale(24), IDC_HOTKEY, g_fontUi);
+    }
+    y += Scale(26);
+    {
+        int dh = TextHeight(S().hotkeyDesc, cw, g_fontSmall);
+        MakeCtrl(L"STATIC", S().hotkeyDesc, SS_LEFT, M, y, cw, dh,
+                 IDC_DESC_FIRST + IDC_HOTKEY, g_fontSmall);
+        y += dh + Scale(14);
+    }
+
+    // --- кнопки -----------------------------------------------------------
+    const int btnW = Scale(110);
+    const int btnH = Scale(28);
+    int by = y + Scale(2);
+
+    MakeCtrl(L"BUTTON", S().defaultsBtn, BS_PUSHBUTTON,
+             M, by, Scale(140), btnH, IDC_DEFAULTS, g_fontUi);
+    MakeCtrl(L"BUTTON", S().cancelBtn, BS_PUSHBUTTON,
+             M + cw - btnW * 2 - Scale(10), by, btnW, btnH, IDC_CANCEL, g_fontUi);
+    MakeCtrl(L"BUTTON", S().saveBtn, BS_DEFPUSHBUTTON,
+             M + cw - btnW, by, btnW, btnH, IDC_SAVE, g_fontUi);
+
+    int clientH = by + btnH + M;
+
+    // --- подгоняем размер окна -------------------------------------------
+    RECT wr = { 0, 0, clientW, clientH };
+    DWORD style = (DWORD)GetWindowLongPtrW(g_settingsWnd, GWL_STYLE);
+    DWORD ex    = (DWORD)GetWindowLongPtrW(g_settingsWnd, GWL_EXSTYLE);
+    AdjustWindowRectEx(&wr, style, FALSE, ex);
+
+    int wndW = wr.right - wr.left;
+    int wndH = wr.bottom - wr.top;
+
+    RECT cur = {};
+    GetWindowRect(g_settingsWnd, &cur);
+    if ((cur.right - cur.left) != wndW || (cur.bottom - cur.top) != wndH)
+    {
+        HMONITOR hm = MonitorFromWindow(g_settingsWnd, MONITOR_DEFAULTTOPRIMARY);
+        MONITORINFO mi = {};
+        mi.cbSize = sizeof(mi);
+        GetMonitorInfoW(hm, &mi);
+
+        int x = mi.rcWork.left + ((mi.rcWork.right - mi.rcWork.left) - wndW) / 2;
+        int cy = mi.rcWork.top + ((mi.rcWork.bottom - mi.rcWork.top) - wndH) / 2;
+        if (cy < mi.rcWork.top) cy = mi.rcWork.top;
+
+        SetWindowPos(g_settingsWnd, nullptr, x, cy, wndW, wndH,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+}
+
+static bool SaveConfigFile()
+{
+    bool ok = true;
+    wchar_t buf[64] = {};
+    auto put = [&](const wchar_t* key, const wchar_t* value) {
+        ok = WritePrivateProfileStringW(L"settings", key, value, g_opt.iniPath.c_str()) && ok;
+    };
+
+    StringCchPrintfW(buf, _countof(buf), L"%d", g_opt.edgePx);
+    put(L"edge_px", buf);
+    StringCchPrintfW(buf, _countof(buf), L"%d", g_opt.pollMs);
+    put(L"poll_ms", buf);
+    put(L"full_work_area",    g_opt.fullWorkArea    ? L"1" : L"0");
+    put(L"fullscreen_guard",  g_opt.fullscreenGuard ? L"1" : L"0");
+    put(L"restore_on_exit",   g_opt.restoreOnExit   ? L"1" : L"0");
+    put(L"log",               g_opt.logEnabled      ? L"1" : L"0");
+    put(L"exit_hotkey",       HotkeyToString(g_opt.hotkeyMods, g_opt.hotkeyVk).c_str());
+    put(L"language",          g_lang == LANG_EN ? L"en" : L"ru");
+
+    return ok;
+}
+
+static void ApplySettings()
+{
+    UINT mods = 0, vk = 0;
+    wchar_t hk[128] = {};
+    GetDlgItemTextW(g_settingsWnd, IDC_HOTKEY, hk, _countof(hk));
+    if (!ParseHotkey(hk, mods, vk))
+    {
+        MessageBoxW(g_settingsWnd, S().errHotkey, S().errTitle, MB_OK | MB_ICONWARNING);
+        return;
+    }
+
+    UINT edge = GetDlgItemInt(g_settingsWnd, IDC_EDGE, nullptr, FALSE);
+    UINT poll = GetDlgItemInt(g_settingsWnd, IDC_POLL, nullptr, FALSE);
+    if (edge < 1 || edge > 64 || poll < 1 || poll > 200)
+    {
+        MessageBoxW(g_settingsWnd, S().errRange, S().errTitle, MB_OK | MB_ICONWARNING);
+        return;
+    }
+
+    bool wasFullWorkArea = g_opt.fullWorkArea;
+
+    g_opt.edgePx          = (int)edge;
+    g_opt.pollMs          = (int)poll;
+    g_opt.fullWorkArea    = IsChecked(IDC_WORKAREA);
+    g_opt.fullscreenGuard = IsChecked(IDC_GUARD);
+    g_opt.restoreOnExit   = IsChecked(IDC_RESTORE);
+    g_opt.logEnabled      = IsChecked(IDC_LOG);
+
+    // горячая клавиша — сразу
+    if (mods != g_opt.hotkeyMods || vk != g_opt.hotkeyVk)
+    {
+        UINT oldMods = g_opt.hotkeyMods, oldVk = g_opt.hotkeyVk;
+        UnregisterHotKey(g_hwnd, kHotkeyId);
+        if (!RegisterHotKey(g_hwnd, kHotkeyId, mods | MOD_NOREPEAT, vk))
+        {
+            g_opt.hotkeyMods = oldMods;
+            g_opt.hotkeyVk   = oldVk;
+            RegisterHotKey(g_hwnd, kHotkeyId, oldMods | MOD_NOREPEAT, oldVk);
+            MessageBoxW(g_settingsWnd, S().errHotkey, S().errTitle, MB_OK | MB_ICONWARNING);
+        }
+        else
+        {
+            g_opt.hotkeyMods = mods;
+            g_opt.hotkeyVk   = vk;
+            LogW(L"exit hotkey changed to %s", HotkeyToString(mods, vk).c_str());
+        }
+    }
+
+    // рабочая область — сразу
+    if (g_opt.fullWorkArea != wasFullWorkArea)
+    {
+        if (g_opt.fullWorkArea)
+        {
+            ApplyFullWorkArea();
+            BroadcastWorkAreaChange();
+        }
+        else
+        {
+            RestoreWorkArea(g_originalAutoHide, true);
+        }
+    }
+
+    if (!SaveConfigFile())
+    {
+        MessageBoxW(g_settingsWnd, S().errSave, S().errTitle, MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    LogW(L"settings saved (edge=%d, poll=%d, workArea=%d, guard=%d, restore=%d, log=%d, lang=%d)",
+         g_opt.edgePx, g_opt.pollMs, g_opt.fullWorkArea ? 1 : 0,
+         g_opt.fullscreenGuard ? 1 : 0, g_opt.restoreOnExit ? 1 : 0,
+         g_opt.logEnabled ? 1 : 0, (int)g_lang);
+
+    TrayUpdateTip();
+    DestroyWindow(g_settingsWnd);
+}
+
+static LRESULT CALLBACK SettingsWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+    switch (msg)
+    {
+    case WM_CTLCOLORSTATIC:
+    {
+        HWND ctl = reinterpret_cast<HWND>(lp);
+        int id = GetDlgCtrlID(ctl);
+        if (id >= IDC_DESC_FIRST)
+        {
+            HDC hdc = reinterpret_cast<HDC>(wp);
+            SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
+            SetBkMode(hdc, TRANSPARENT);
+            return reinterpret_cast<LRESULT>(GetSysColorBrush(COLOR_WINDOW));
+        }
+        SetBkMode(reinterpret_cast<HDC>(wp), TRANSPARENT);
+        return reinterpret_cast<LRESULT>(GetSysColorBrush(COLOR_WINDOW));
+    }
+
+    case WM_COMMAND:
+        switch (LOWORD(wp))
+        {
+        case IDC_LANG_RU:
+            if (g_lang != LANG_RU) { g_lang = LANG_RU; BuildSettingsUi(); }
+            return 0;
+        case IDC_LANG_EN:
+            if (g_lang != LANG_EN) { g_lang = LANG_EN; BuildSettingsUi(); }
+            return 0;
+        case IDC_SAVE:
+            ApplySettings();
+            return 0;
+        case IDC_CANCEL:
+            g_lang = g_langOnOpen;          // отмена — язык не меняем
+            DestroyWindow(hwnd);
+            return 0;
+        case IDC_DEFAULTS:
+            SetDlgItemInt(hwnd, IDC_EDGE, 2, FALSE);
+            SetDlgItemInt(hwnd, IDC_POLL, 5, FALSE);
+            SetChecked(IDC_WORKAREA, true);
+            SetChecked(IDC_GUARD, true);
+            SetChecked(IDC_RESTORE, true);
+            SetChecked(IDC_LOG, false);
+            SetDlgItemTextW(hwnd, IDC_HOTKEY, L"Ctrl+Alt+Q");
+            return 0;
+        }
+        return 0;
+
+    case WM_CLOSE:
+        g_lang = g_langOnOpen;
+        DestroyWindow(hwnd);
+        return 0;
+
+    case WM_DESTROY:
+        g_settingsWnd = nullptr;
+        g_settingsOpen = false;
+        DestroyFonts();
+        return 0;
+    }
+    return DefWindowProcW(hwnd, msg, wp, lp);
+}
+
+static void ShowSettingsWindow()
+{
+    if (g_settingsWnd && IsWindow(g_settingsWnd))
+    {
+        ShowWindow(g_settingsWnd, SW_SHOW);
+        SetForegroundWindow(g_settingsWnd);
+        return;
+    }
+
+    static bool classRegistered = false;
+    if (!classRegistered)
+    {
+        WNDCLASSEXW wc = {};
+        wc.cbSize        = sizeof(wc);
+        wc.lpfnWndProc   = SettingsWndProc;
+        wc.hInstance     = g_hInst;
+        wc.hCursor       = LoadCursorW(nullptr, IDC_ARROW);
+        wc.hbrBackground = GetSysColorBrush(COLOR_WINDOW);
+        wc.lpszClassName = kSettingsClass;
+        if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
+            return;
+        classRegistered = true;
+    }
+
+    g_langOnOpen = g_lang;
+    g_settingsOpen = true;
+
+    wchar_t title[128] = {};
+    StringCchPrintfW(title, _countof(title), L"HidePanel %s — %s", kVersion, S().menuSettings);
+
+    // размер уточним в BuildSettingsUi
+    g_settingsWnd = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST,
+                                    kSettingsClass, title,
+                                    WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_CLIPCHILDREN,
+                                    CW_USEDEFAULT, CW_USEDEFAULT, Scale(640), Scale(600),
+                                    nullptr, nullptr, g_hInst, nullptr);
+    if (!g_settingsWnd) { g_settingsOpen = false; return; }
+
+    BuildSettingsUi();
+    ShowWindow(g_settingsWnd, SW_SHOW);
+    SetForegroundWindow(g_settingsWnd);
+    LogW(L"settings window opened");
 }
 
 // ---------------------------------------------------------------------------
@@ -1041,7 +1659,7 @@ static LRESULT CALLBACK MsgWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             SetAutostart(!IsAutostartEnabled());
             return 0;
         case IDM_TRAY_SETTINGS:
-            OpenSettingsFile();
+            ShowSettingsWindow();
             return 0;
         }
         return 0;
@@ -1121,6 +1739,9 @@ static void WriteStateFile(bool autohide)
 
 static void LoadConfig()
 {
+    // По умолчанию — язык системы; файл настроек может его переопределить.
+    g_lang = DetectSystemLanguage();
+
     if (GetFileAttributesW(g_opt.iniPath.c_str()) == INVALID_FILE_ATTRIBUTES)
         return;
 
@@ -1137,6 +1758,11 @@ static void LoadConfig()
         UINT m = 0, v = 0;
         if (ParseHotkey(hk, m, v)) { g_opt.hotkeyMods = m; g_opt.hotkeyVk = v; }
     }
+
+    std::wstring lang = IniString(L"settings", L"language", L"auto");
+    if (_wcsicmp(lang.c_str(), L"ru") == 0)      g_lang = LANG_RU;
+    else if (_wcsicmp(lang.c_str(), L"en") == 0) g_lang = LANG_EN;
+    else                                         g_lang = DetectSystemLanguage();
 
     if (g_opt.edgePx < 1)   g_opt.edgePx = 1;
     if (g_opt.edgePx > 64)  g_opt.edgePx = 64;
@@ -1174,23 +1800,12 @@ static void ParseCommandLine()
 static void ShowHelp()
 {
     std::wstring text =
-        L"HidePanel " + std::wstring(kVersion) + L"\n\n"
-        L"Панель задач скрыта постоянно и появляется мгновенно, когда курсор\n"
-        L"оказывается в самой нижней полосе экрана. Иконка в трее (появляется\n"
-        L"вместе с панелью) — меню с выходом и автозапуском.\n\n"
-        L"Параметры:\n"
-        L"  --restore        Показать панель задач и вернуть штатное авто-скрытие\n"
-        L"  --quit           Остановить уже запущенный экземпляр\n"
-        L"  --edge N         Толщина горячей полосы у края, px (по умолчанию 2)\n"
-        L"  --poll N         Период опроса курсора, мс (по умолчанию 5)\n"
-        L"  --no-fullscreen-guard  Показывать панель даже поверх fullscreen-приложений\n"
-        L"  --debug          Подробный лог\n"
-        L"  --version        Версия\n"
-        L"  --help           Эта справка\n\n"
-        L"Выход: " + HotkeyToString(g_opt.hotkeyMods, g_opt.hotkeyVk) +
-        L"  (или: HidePanel.exe --quit)\n\n"
-        L"Настройки: HidePanel.ini рядом с HidePanel.exe\n"
-        L"Лог: " + g_opt.logPath;
+        L"HidePanel " + std::wstring(kVersion) + L"\n\n" +
+        S().helpBody +
+        L"\n" + S().helpExit + L": " + HotkeyToString(g_opt.hotkeyMods, g_opt.hotkeyVk) +
+        L"   (" + L"HidePanel.exe --quit" + L")\n" +
+        S().helpSettings + L": HidePanel.ini\n" +
+        S().helpLog + L": " + g_opt.logPath;
     MessageBoxW(nullptr, text.c_str(), L"HidePanel", MB_OK | MB_ICONINFORMATION);
 }
 

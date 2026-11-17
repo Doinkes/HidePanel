@@ -155,8 +155,13 @@ Write-Host ""
 
 $proc = $null
 $form = $null
+$cx = [int]($screenW / 2)
 try {
     # --- запуск -----------------------------------------------------------
+    # увести курсор от нижнего края, иначе панель законно окажется показанной
+    Set-Cursor $cx ([int]($screenH / 2)) | Out-Null
+    Start-Sleep -Milliseconds 150
+
     $appArgs = @('--debug')
     if ($Force) { $appArgs += '--no-fullscreen-guard' }
     $proc = Start-Process -FilePath $Exe -ArgumentList $appArgs -PassThru
@@ -190,7 +195,6 @@ try {
         "(rect $($r.Left),$($r.Top)-$($r.Right),$($r.Bottom))"
 
     # --- 3. курсор в нижние 2 px -> мгновенно показать --------------------
-    $cx = [int]($screenW / 2)
     Set-Cursor $cx ($screenH - 1) | Out-Null
     $ms = Wait-Hidden $tray $false
     Check 'taskbar appears on bottom-edge hover' ($ms -ge 0) "($ms ms)"
