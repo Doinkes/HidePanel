@@ -3,7 +3,6 @@
 **Мгновенно скрывающаяся панель задач для Windows 10/11.**
 *Instant taskbar auto-hide for Windows 10/11 — no animation, no delay, the panel is drawn over windows.*
 
-[![Release](https://img.shields.io/github/v/release/Doinkes/HidePanel?label=release)](https://github.com/Doinkes/HidePanel/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6.svg)](#)
 
