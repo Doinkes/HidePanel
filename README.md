@@ -1,6 +1,13 @@
 # HidePanel
 
-Мгновенно скрывающаяся панель задач для Windows 10/11.
+**Мгновенно скрывающаяся панель задач для Windows 10/11.**
+*Instant taskbar auto-hide for Windows 10/11 — no animation, no delay, the panel is drawn over windows.*
+
+[![Release](https://img.shields.io/github/v/release/Doinkes/HidePanel?label=release)](https://github.com/Doinkes/HidePanel/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6.svg)](#)
+
+[**Скачать последнюю версию**](https://github.com/Doinkes/HidePanel/releases/latest)
 
 Панель задач полностью скрыта и появляется **мгновенно**, только когда курсор оказывается
 в самой нижней полосе экрана (по умолчанию — 2 пикселя). Как только курсор уходит с панели —
@@ -48,7 +55,7 @@ HidePanel убирает и задержки, и анимацию: показ/с
 
 ## Установка
 
-1. Скачайте `HidePanel-v1.2.0-win64.zip` из раздела **Releases** и распакуйте,
+1. Скачайте `HidePanel-v1.2.1-win64.zip` из раздела **Releases** и распакуйте,
    например, в `C:\Tools\HidePanel`.
 2. Запустите `HidePanel.exe`. Права администратора не нужны.
 3. Выход — `Ctrl+Alt+Q`, пункт «Выход» в меню значка в трее или `HidePanel.exe --quit`.
@@ -213,4 +220,7 @@ scripts/test.ps1        smoke-тест на живой панели задач
 
 ## Лицензия
 
-MIT — см. [LICENSE](LICENSE).
+MIT — свободное использование, изменение и распространение при сохранении уведомления об
+авторстве. См. [LICENSE](LICENSE).
+
+Автор: **Doinkes** · [github.com/Doinkes](https://github.com/Doinkes)
