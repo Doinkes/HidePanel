@@ -56,7 +56,7 @@ HidePanel убирает и задержки, и анимацию: показ/с
 
 ## Установка
 
-1. Скачайте `HidePanel-v1.0.0-win64.zip` из раздела **Releases** и распакуйте,
+1. Скачайте `HidePanel-v1.0-win64.zip` из раздела **Releases** и распакуйте,
    например, в `C:\Tools\HidePanel`.
 2. Запустите `HidePanel.exe`. Права администратора не нужны.
 3. Выход — `Ctrl+Alt+Q`, пункт «Выход» в меню значка в трее или `HidePanel.exe --quit`.
@@ -250,7 +250,7 @@ taskbar is drawn on top of them.
 
 ### Install
 
-1. Download `HidePanel-v1.0.0-win64.zip` from [Releases](https://github.com/Doinkes/HidePanel/releases/latest)
+1. Download `HidePanel-v1.0-win64.zip` from [Releases](https://github.com/Doinkes/HidePanel/releases/latest)
    and unpack it, for example to `C:\Tools\HidePanel`.
 2. Run `HidePanel.exe`.
 3. To exit: `Ctrl+Alt+Q`, the "Exit" item in the tray menu, or `HidePanel.exe --quit`.

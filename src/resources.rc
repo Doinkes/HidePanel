@@ -29,12 +29,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "HidePanel"
             VALUE "FileDescription",  "HidePanel - instant taskbar auto-hide"
-            VALUE "FileVersion",      "1.0.0.0"
+            VALUE "FileVersion",      "1.0"
             VALUE "InternalName",     "HidePanel"
             VALUE "LegalCopyright",   "MIT License"
             VALUE "OriginalFilename", "HidePanel.exe"
             VALUE "ProductName",      "HidePanel"
-            VALUE "ProductVersion",   "1.0.0.0"
+            VALUE "ProductVersion",   "1.0"
         END
     END
     BLOCK "VarFileInfo"
