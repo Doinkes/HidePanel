@@ -1,0 +1,16 @@
+# Нормализация переводов строк в репозитории
+* text=auto
+
+*.cpp   text eol=crlf
+*.h     text eol=crlf
+*.rc    text eol=crlf
+*.ps1   text eol=crlf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.ini   text eol=crlf
+
+*.ico   binary
+*.png   binary
+*.exe   binary
+*.zip   binary

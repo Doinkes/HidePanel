@@ -1,0 +1,23 @@
+# --- сборка / артефакты ---
+build/
+dist/
+*.obj
+*.o
+*.res
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.exe
+*.zip
+
+# --- IDE ---
+.vs/
+.vscode/
+*.user
+*.suo
+
+# --- прочее ---
+*.log
+Thumbs.db
+desktop.ini
