@@ -49,7 +49,7 @@
 // ---------------------------------------------------------------------------
 
 static const wchar_t* const kAppName        = L"HidePanel";
-static const wchar_t* const kVersion        = L"1.2.0";
+static const wchar_t* const kVersion        = L"1.2.1";
 static const wchar_t* const kMsgWndClass    = L"HidePanel.MessageWindow";
 static const wchar_t* const kMutexName      = L"Local\\HidePanel.SingleInstance";
 static const wchar_t* const kTrayClass      = L"Shell_TrayWnd";
@@ -137,19 +137,12 @@ struct UiStrings
     const wchar_t* restoreLabel;
     const wchar_t* restoreDesc;
 
-    const wchar_t* logLabel;
-    const wchar_t* logDesc;
-
-    const wchar_t* hotkeyLabel;
-    const wchar_t* hotkeyDesc;
-
     const wchar_t* saveBtn;
     const wchar_t* cancelBtn;
     const wchar_t* defaultsBtn;
 
     const wchar_t* errTitle;
     const wchar_t* errRange;
-    const wchar_t* errHotkey;
     const wchar_t* errSave;
 
     const wchar_t* trayTip;
@@ -174,11 +167,11 @@ static const UiStrings kStringsRu =
     L"px",
 
     L"Период опроса курсора",
-    L"Как часто проверяется положение курсора. Меньше — отзывчивее, больше — меньше нагрузка.",
+    L"Как часто проверяется положение курсора: 5 мс — примерно 200 раз в секунду. Меньше — отзывчивее, больше — экономнее для процессора.",
     L"мс",
 
     L"Разворачивать окна на весь экран",
-    L"Рабочая область равна полному размеру монитора, а панель рисуется поверх окон.",
+    L"Окна разворачиваются на весь монитор, а панель рисуется поверх них. Если выключить — внизу резервируется полоса под панель.",
 
     L"Не показывать поверх полноэкранных приложений",
     L"Панель не будет появляться поверх игр и полноэкранного видео.",
@@ -186,19 +179,12 @@ static const UiStrings kStringsRu =
     L"Восстанавливать авто-скрытие при выходе",
     L"Вернуть исходную настройку Windows, когда программа закрывается.",
 
-    L"Записывать лог",
-    L"Файл HidePanel.log в папке %LOCALAPPDATA%\\HidePanel — пригодится для отчёта об ошибке.",
-
-    L"Горячая клавиша выхода",
-    L"Например: Ctrl+Alt+Q, Ctrl+Shift+F12, Win+Alt+H.",
-
     L"Сохранить",
     L"Отмена",
     L"По умолчанию",
 
     L"Настройки",
     L"Проверьте значения: толщина 1–64 px, период опроса 1–200 мс.",
-    L"Не удалось разобрать горячую клавишу. Пример: Ctrl+Alt+Q.",
     L"Не удалось записать файл настроек.",
 
     L"HidePanel — панель задач скрыта",
@@ -232,11 +218,11 @@ static const UiStrings kStringsEn =
     L"px",
 
     L"Cursor polling interval",
-    L"How often the cursor position is checked. Lower is more responsive, higher uses less CPU.",
+    L"How often the cursor position is checked: 5 ms is about 200 times per second. Lower is more responsive, higher saves CPU.",
     L"ms",
 
     L"Maximize windows to full screen",
-    L"The work area covers the whole monitor and the taskbar is drawn on top of windows.",
+    L"Windows maximize to the whole monitor and the taskbar is drawn on top. Turn off to reserve a strip for the taskbar.",
 
     L"Never show over fullscreen apps",
     L"The taskbar will not appear over games and fullscreen video.",
@@ -244,19 +230,12 @@ static const UiStrings kStringsEn =
     L"Restore auto-hide on exit",
     L"Put the original Windows setting back when the program quits.",
 
-    L"Write a log file",
-    L"HidePanel.log in %LOCALAPPDATA%\\HidePanel — useful for bug reports.",
-
-    L"Exit hotkey",
-    L"For example: Ctrl+Alt+Q, Ctrl+Shift+F12, Win+Alt+H.",
-
     L"Save",
     L"Cancel",
     L"Defaults",
 
     L"Settings",
     L"Check the values: thickness 1–64 px, polling interval 1–200 ms.",
-    L"Cannot parse the hotkey. Example: Ctrl+Alt+Q.",
     L"Could not write the settings file.",
 
     L"HidePanel — taskbar hidden",
@@ -761,24 +740,42 @@ static bool ApplyFullWorkArea()
     return true;
 }
 
-// Возвращает штатное значение рабочей области (при выходе).
+// Штатная рабочая область, когда панель не автоскрыта: монитор минус панель.
 static void BroadcastWorkAreaChange();
 
-static void RestoreWorkArea(bool autohideOn, bool force = false)
+static RECT GetReservedWorkArea()
 {
-    if (!g_workAreaOwned && !force) return;
-
     RECT target = g_primaryMon;
-    if (!autohideOn && !g_tray.hwnds.empty())
+    if (!g_tray.hwnds.empty())
     {
         RECT bar = {};
         if (GetWindowRect(g_tray.hwnds[0], &bar) && bar.top > g_primaryMon.top)
             target.bottom = bar.top;
     }
-    else if (autohideOn)
-    {
-        target = g_primaryMon;              // при авто-скрытии место не резервируется
-    }
+    return target;
+}
+
+// Переключает режим рабочей области на лету (из окна настроек).
+static void SetWorkAreaMode(bool fullScreen)
+{
+    RECT target = fullScreen ? g_primaryMon : GetReservedWorkArea();
+
+    RECT cur = GetWorkArea();
+    if (EqualRect(&cur, &target)) return;
+
+    SystemParametersInfoW(SPI_SETWORKAREA, 0, &target, 0);
+    g_workAreaOwned = true;
+    BroadcastWorkAreaChange();
+}
+
+// Возвращает штатное значение рабочей области (при выходе).
+static void RestoreWorkArea(bool autohideOn, bool force = false)
+{
+    if (!g_workAreaOwned && !force) return;
+
+    // При включённом авто-скрытии Windows место под панель не резервирует,
+    // иначе — резервирует полосу внизу.
+    RECT target = autohideOn ? g_primaryMon : GetReservedWorkArea();
 
     RECT cur = GetWorkArea();
     if (!EqualRect(&cur, &target))
@@ -1173,8 +1170,6 @@ enum SettingsId
     IDC_WORKAREA,
     IDC_GUARD,
     IDC_RESTORE,
-    IDC_LOG,
-    IDC_HOTKEY,
     IDC_SAVE,
     IDC_CANCEL,
     IDC_DEFAULTS,
@@ -1327,7 +1322,6 @@ static void BuildSettingsUi()
         { S().workAreaLabel, S().workAreaDesc, IDC_WORKAREA, g_opt.fullWorkArea },
         { S().guardLabel,    S().guardDesc,    IDC_GUARD,    g_opt.fullscreenGuard },
         { S().restoreLabel,  S().restoreDesc,  IDC_RESTORE,  g_opt.restoreOnExit },
-        { S().logLabel,      S().logDesc,      IDC_LOG,      g_opt.logEnabled },
     };
 
     for (const BoolRow& b : bools)
@@ -1341,22 +1335,6 @@ static void BuildSettingsUi()
         MakeCtrl(L"STATIC", b.desc, SS_LEFT, M + Scale(16), y, cw - Scale(20), dh,
                  IDC_DESC_FIRST + b.id, g_fontSmall);
         y += dh + Scale(10);
-    }
-
-    // --- горячая клавиша --------------------------------------------------
-    MakeCtrl(L"STATIC", S().hotkeyLabel, SS_LEFT, M, y, cw - Scale(210), Scale(20), -1, g_fontBold);
-    {
-        wchar_t hk[64] = {};
-        StringCchCopyW(hk, _countof(hk), HotkeyToString(g_opt.hotkeyMods, g_opt.hotkeyVk).c_str());
-        MakeCtrl(L"EDIT", hk, ES_AUTOHSCROLL | WS_BORDER,
-                 M + cw - Scale(200), y - Scale(3), Scale(200), Scale(24), IDC_HOTKEY, g_fontUi);
-    }
-    y += Scale(26);
-    {
-        int dh = TextHeight(S().hotkeyDesc, cw, g_fontSmall);
-        MakeCtrl(L"STATIC", S().hotkeyDesc, SS_LEFT, M, y, cw, dh,
-                 IDC_DESC_FIRST + IDC_HOTKEY, g_fontSmall);
-        y += dh + Scale(14);
     }
 
     // --- кнопки -----------------------------------------------------------
@@ -1415,8 +1393,6 @@ static bool SaveConfigFile()
     put(L"full_work_area",    g_opt.fullWorkArea    ? L"1" : L"0");
     put(L"fullscreen_guard",  g_opt.fullscreenGuard ? L"1" : L"0");
     put(L"restore_on_exit",   g_opt.restoreOnExit   ? L"1" : L"0");
-    put(L"log",               g_opt.logEnabled      ? L"1" : L"0");
-    put(L"exit_hotkey",       HotkeyToString(g_opt.hotkeyMods, g_opt.hotkeyVk).c_str());
     put(L"language",          g_lang == LANG_EN ? L"en" : L"ru");
 
     return ok;
@@ -1424,15 +1400,6 @@ static bool SaveConfigFile()
 
 static void ApplySettings()
 {
-    UINT mods = 0, vk = 0;
-    wchar_t hk[128] = {};
-    GetDlgItemTextW(g_settingsWnd, IDC_HOTKEY, hk, _countof(hk));
-    if (!ParseHotkey(hk, mods, vk))
-    {
-        MessageBoxW(g_settingsWnd, S().errHotkey, S().errTitle, MB_OK | MB_ICONWARNING);
-        return;
-    }
-
     UINT edge = GetDlgItemInt(g_settingsWnd, IDC_EDGE, nullptr, FALSE);
     UINT poll = GetDlgItemInt(g_settingsWnd, IDC_POLL, nullptr, FALSE);
     if (edge < 1 || edge > 64 || poll < 1 || poll > 200)
@@ -1448,41 +1415,10 @@ static void ApplySettings()
     g_opt.fullWorkArea    = IsChecked(IDC_WORKAREA);
     g_opt.fullscreenGuard = IsChecked(IDC_GUARD);
     g_opt.restoreOnExit   = IsChecked(IDC_RESTORE);
-    g_opt.logEnabled      = IsChecked(IDC_LOG);
-
-    // горячая клавиша — сразу
-    if (mods != g_opt.hotkeyMods || vk != g_opt.hotkeyVk)
-    {
-        UINT oldMods = g_opt.hotkeyMods, oldVk = g_opt.hotkeyVk;
-        UnregisterHotKey(g_hwnd, kHotkeyId);
-        if (!RegisterHotKey(g_hwnd, kHotkeyId, mods | MOD_NOREPEAT, vk))
-        {
-            g_opt.hotkeyMods = oldMods;
-            g_opt.hotkeyVk   = oldVk;
-            RegisterHotKey(g_hwnd, kHotkeyId, oldMods | MOD_NOREPEAT, oldVk);
-            MessageBoxW(g_settingsWnd, S().errHotkey, S().errTitle, MB_OK | MB_ICONWARNING);
-        }
-        else
-        {
-            g_opt.hotkeyMods = mods;
-            g_opt.hotkeyVk   = vk;
-            LogW(L"exit hotkey changed to %s", HotkeyToString(mods, vk).c_str());
-        }
-    }
 
     // рабочая область — сразу
     if (g_opt.fullWorkArea != wasFullWorkArea)
-    {
-        if (g_opt.fullWorkArea)
-        {
-            ApplyFullWorkArea();
-            BroadcastWorkAreaChange();
-        }
-        else
-        {
-            RestoreWorkArea(g_originalAutoHide, true);
-        }
-    }
+        SetWorkAreaMode(g_opt.fullWorkArea);
 
     if (!SaveConfigFile())
     {
@@ -1540,8 +1476,6 @@ static LRESULT CALLBACK SettingsWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             SetChecked(IDC_WORKAREA, true);
             SetChecked(IDC_GUARD, true);
             SetChecked(IDC_RESTORE, true);
-            SetChecked(IDC_LOG, false);
-            SetDlgItemTextW(hwnd, IDC_HOTKEY, L"Ctrl+Alt+Q");
             return 0;
         }
         return 0;
@@ -1702,7 +1636,8 @@ static bool CreateMessageWindow()
                              0, 0, 0, 0, nullptr, nullptr, g_hInst, nullptr);
     if (!g_hwnd) return false;
 
-    if (!RegisterHotKey(g_hwnd, kHotkeyId, g_opt.hotkeyMods | MOD_NOREPEAT, g_opt.hotkeyVk))
+    if (g_opt.hotkeyVk != 0 &&
+        !RegisterHotKey(g_hwnd, kHotkeyId, g_opt.hotkeyMods | MOD_NOREPEAT, g_opt.hotkeyVk))
         LogW(L"warning: RegisterHotKey failed (%lu)", GetLastError());
     return true;
 }
@@ -1755,8 +1690,17 @@ static void LoadConfig()
     std::wstring hk = IniString(L"settings", L"exit_hotkey", L"");
     if (!hk.empty())
     {
-        UINT m = 0, v = 0;
-        if (ParseHotkey(hk, m, v)) { g_opt.hotkeyMods = m; g_opt.hotkeyVk = v; }
+        if (_wcsicmp(hk.c_str(), L"none") == 0 ||
+            _wcsicmp(hk.c_str(), L"off") == 0 ||
+            _wcsicmp(hk.c_str(), L"no") == 0)
+        {
+            g_opt.hotkeyVk = 0;                     // без горячей клавиши
+        }
+        else
+        {
+            UINT m = 0, v = 0;
+            if (ParseHotkey(hk, m, v)) { g_opt.hotkeyMods = m; g_opt.hotkeyVk = v; }
+        }
     }
 
     std::wstring lang = IniString(L"settings", L"language", L"auto");
@@ -1799,10 +1743,14 @@ static void ParseCommandLine()
 
 static void ShowHelp()
 {
+    std::wstring hkText = (g_opt.hotkeyVk != 0)
+        ? HotkeyToString(g_opt.hotkeyMods, g_opt.hotkeyVk)
+        : (g_lang == LANG_EN ? std::wstring(L"none") : std::wstring(L"нет"));
+
     std::wstring text =
         L"HidePanel " + std::wstring(kVersion) + L"\n\n" +
         S().helpBody +
-        L"\n" + S().helpExit + L": " + HotkeyToString(g_opt.hotkeyMods, g_opt.hotkeyVk) +
+        L"\n" + S().helpExit + L": " + hkText +
         L"   (" + L"HidePanel.exe --quit" + L")\n" +
         S().helpSettings + L": HidePanel.ini\n" +
         S().helpLog + L": " + g_opt.logPath;
